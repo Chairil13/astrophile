@@ -6,6 +6,10 @@ import { Link } from "react-router-dom";
 import bgVideo from "../assets/background/background.mp4";
 import bgVideo2 from "../assets/background/background2.mp4";
 import bgAudio from "../assets/audio/audio.MP3";
+import uiClickSoundOn from "../assets/audio/toggle_on.wav";
+import uiClickSoundOff from "../assets/audio/toggle_off.wav";
+import uiHoverSound from "../assets/audio/hover.wav";
+import uiClickSound from "../assets/audio/click.wav";
 
 const BACKGROUNDS = [bgVideo, bgVideo2];
 
@@ -165,7 +169,23 @@ export default function LandingPage() {
   const [bgIndex, setBgIndex] = useState(0);
 
   const toggleAudio = () => {
+    const soundFile = isPlaying ? uiClickSoundOff : uiClickSoundOn;
+    const clickSfx = new Audio(soundFile);
+    clickSfx.volume = 0.4;
+    clickSfx.play().catch(() => {});
     setIsPlaying(!isPlaying);
+  };
+
+  const playHoverSound = () => {
+    const hoverSfx = new Audio(uiHoverSound);
+    hoverSfx.volume = 0.2;
+    hoverSfx.play().catch(() => {});
+  };
+
+  const playClickSound = () => {
+    const clickSfx = new Audio(uiClickSound);
+    clickSfx.volume = 0.5;
+    clickSfx.play().catch(() => {});
   };
 
   return (
@@ -187,7 +207,10 @@ export default function LandingPage() {
         <div className="hidden md:block w-32"></div>
 
         {/* Center Logo */}
-        <div className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2">
+        <div 
+          className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 cursor-default"
+          onMouseEnter={playHoverSound}
+        >
           <span className="text-xl logo-effect tracking-widest" style={{ fontFamily: "'Inter', sans-serif" }}>
             CHAIRIL
           </span>
@@ -197,6 +220,8 @@ export default function LandingPage() {
         <div className="flex items-center gap-4">
           <Link
             to="/tracker"
+            onClick={playClickSound}
+            onMouseEnter={playHoverSound}
             className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md px-5 py-2.5 rounded-full transition-all duration-300 text-white/80 hover:text-white group"
           >
             <Orbit className="w-4 h-4 group-hover:rotate-180 transition-transform duration-700" />
@@ -229,7 +254,11 @@ export default function LandingPage() {
       {/* Next Background Orbital Button */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-50 animate-fade-rise-delay-2 flex flex-col items-center justify-center">
         <button
-          onClick={() => setBgIndex((prev) => (prev + 1) % BACKGROUNDS.length)}
+          onClick={() => {
+            playClickSound();
+            setBgIndex((prev) => (prev + 1) % BACKGROUNDS.length);
+          }}
+          onMouseEnter={playHoverSound}
           className="relative group flex items-center justify-center rounded-full w-[120px] h-[120px] text-foreground hover:scale-[1.05] transition-all duration-500 cursor-pointer"
           aria-label="Next Background"
         >
@@ -255,6 +284,7 @@ export default function LandingPage() {
       {/* Audio Toggle Button */}
       <button
         onClick={toggleAudio}
+        onMouseEnter={playHoverSound}
         className="fixed bottom-8 right-8 z-50 p-3 w-12 h-12 flex items-center justify-center rounded-full bg-white/5 text-foreground backdrop-blur-md hover:bg-white/10 transition-all border border-white/10 cursor-pointer"
         aria-label="Toggle background audio"
       >
