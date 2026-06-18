@@ -50,12 +50,12 @@ function SeamlessVideo({ src, className, isActive = true }: { src: string, class
 
   return (
     <>
-      <video ref={video0Ref} autoPlay muted playsInline preload="auto" onTimeUpdate={(e) => handleTimeUpdate(e, 0)}
+      <video ref={video0Ref} autoPlay={isActive} muted playsInline preload={isActive ? "auto" : "none"} onTimeUpdate={(e) => handleTimeUpdate(e, 0)}
         className={cn(className, "absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out", activeIdx === 0 ? "opacity-100" : "opacity-0")}
       >
         <source src={src} type="video/mp4" />
       </video>
-      <video ref={video1Ref} muted playsInline preload="auto" onTimeUpdate={(e) => handleTimeUpdate(e, 1)}
+      <video ref={video1Ref} muted playsInline preload="none" onTimeUpdate={(e) => handleTimeUpdate(e, 1)}
         className={cn(className, "absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out", activeIdx === 1 ? "opacity-100" : "opacity-0")}
       >
         <source src={src} type="video/mp4" />
@@ -153,8 +153,8 @@ function SeamlessAudio({ src, isPlaying = false }: { src: string, isPlaying?: bo
 
   return (
     <>
-      <audio ref={audio0Ref} src={src} preload="auto" onTimeUpdate={(e) => handleTimeUpdate(e, 0)} />
-      <audio ref={audio1Ref} src={src} preload="auto" onTimeUpdate={(e) => handleTimeUpdate(e, 1)} />
+      <audio ref={audio0Ref} src={src} preload={isPlaying ? "auto" : "none"} onTimeUpdate={(e) => handleTimeUpdate(e, 0)} />
+      <audio ref={audio1Ref} src={src} preload="none" onTimeUpdate={(e) => handleTimeUpdate(e, 1)} />
     </>
   );
 }
@@ -169,7 +169,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col overflow-hidden bg-background">
+    <div className="relative h-[100dvh] w-full flex flex-col overflow-hidden bg-background">
       {/* Background Video Layers */}
       <div className="absolute inset-0 z-0 bg-black">
         {BACKGROUNDS.map((bg, index) => (
@@ -182,7 +182,7 @@ export default function LandingPage() {
       </div>
 
       {/* Navigation */}
-      <nav className="relative z-10 flex flex-col md:flex-row justify-between items-center px-6 md:px-8 py-6 w-full gap-6 md:gap-0">
+      <nav className="relative z-10 flex flex-col md:flex-row justify-between items-center px-6 md:px-8 py-4 md:py-6 w-full gap-4 md:gap-0">
         {/* Placeholder for left content if needed */}
         <div className="hidden md:block w-32"></div>
 
@@ -206,19 +206,19 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 pt-12 md:pt-40 pb-40 md:pb-12 w-full max-w-7xl mx-auto">
+      <main className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-6 pb-20 md:pt-40 md:pb-12 w-full max-w-7xl mx-auto">
         <h1
           className="text-5xl sm:text-7xl md:text-8xl leading-[0.95] tracking-[-2.46px] max-w-7xl font-normal animate-fade-rise"
           style={{ fontFamily: "'Instrument Serif', serif" }}
         >
           <span className="shine-effect">
-            Where <em className="not-italic shine-effect-muted">dreams</em> rise <em className="not-italic shine-effect-muted">through the silence.</em>
+            A silent <em className="not-italic shine-effect-muted">voyage</em> above the <em className="not-italic shine-effect-muted">world.</em>
           </span>
         </h1>
 
         <p className="text-base sm:text-lg max-w-2xl mt-8 leading-relaxed animate-fade-rise-delay">
           <span className="shine-effect-muted shine-slow">
-            We're designing tools for deep thinkers, bold creators, and quiet rebels. Amid the chaos, we build digital spaces for sharp focus and inspired work.
+            Track the International Space Station in real-time with seamless 3D visualization.
           </span>
         </p>
       </main>

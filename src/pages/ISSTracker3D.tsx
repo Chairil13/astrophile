@@ -160,20 +160,20 @@ export default function ISSTracker3D() {
       </div>
 
       {/* Navigation Bar */}
-      <nav className="absolute top-0 left-0 w-full z-20 flex flex-row justify-between items-center px-8 py-6 pointer-events-auto">
+      <nav className="absolute top-0 left-0 w-full z-30 flex flex-row justify-between items-start md:items-center px-4 md:px-8 py-4 md:py-6 pointer-events-auto">
         <Link 
           to="/"
-          className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md px-5 py-2.5 rounded-full transition-all duration-300 text-white/80 hover:text-white"
+          className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md p-3 md:px-5 md:py-2.5 rounded-full transition-all duration-300 text-white/80 hover:text-white"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span className="text-xs uppercase tracking-[0.2em] font-medium">Back</span>
+          <ArrowLeft className="w-5 h-5 md:w-4 md:h-4" />
+          <span className="hidden md:inline text-xs uppercase tracking-[0.2em] font-medium">Back</span>
         </Link>
       </nav>
 
-      {/* Top Left: Telemetry Dashboard */}
-      <div className="absolute top-24 left-8 z-20 pointer-events-none">
-        <div className="backdrop-blur-md bg-black/30 border border-white/10 rounded-2xl p-5 flex flex-col gap-4 min-w-[200px]">
-          <div className="flex items-center gap-3 mb-2">
+      {/* Top Center Mobile / Top Left Desktop: Telemetry Dashboard */}
+      <div className="absolute top-4 md:top-24 left-1/2 md:left-8 -translate-x-1/2 md:translate-x-0 z-20 pointer-events-none w-[85%] md:w-auto">
+        <div className="backdrop-blur-md bg-black/40 border border-white/10 rounded-2xl p-3 md:p-5 flex flex-row md:flex-col justify-between md:justify-start gap-2 md:gap-4 min-w-0 md:min-w-[200px]">
+          <div className="hidden md:flex items-center gap-3 mb-2">
             <div className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
@@ -181,28 +181,28 @@ export default function ISSTracker3D() {
             <span className="text-[10px] tracking-[0.3em] font-medium text-white/80 uppercase">Telemetry</span>
           </div>
 
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Latitude</span>
-            <span className="text-lg font-light tabular-nums" style={{ fontFamily: "'Inter', sans-serif" }}>
-              {issData ? `${issData.latitude.toFixed(4)}°` : "........."}
+          <div className="flex flex-col items-center md:items-start flex-1 md:flex-none">
+            <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Lat</span>
+            <span className="text-xs md:text-lg font-light tabular-nums" style={{ fontFamily: "'Inter', sans-serif" }}>
+              {issData ? `${issData.latitude.toFixed(2)}°` : "..."}
             </span>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Longitude</span>
-            <span className="text-lg font-light tabular-nums" style={{ fontFamily: "'Inter', sans-serif" }}>
-              {issData ? `${issData.longitude.toFixed(4)}°` : "........."}
+          <div className="flex flex-col items-center md:items-start flex-1 md:flex-none border-l border-white/10 md:border-0">
+            <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Lng</span>
+            <span className="text-xs md:text-lg font-light tabular-nums" style={{ fontFamily: "'Inter', sans-serif" }}>
+              {issData ? `${issData.longitude.toFixed(2)}°` : "..."}
             </span>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Altitude</span>
-            <span className="text-lg font-light tabular-nums flex items-baseline gap-1" style={{ fontFamily: "'Inter', sans-serif" }}>
-              {issData ? Math.round(issData.altitude) : "..."} <span className="text-[10px] font-normal text-white/50">km</span>
+          <div className="flex flex-col items-center md:items-start flex-1 md:flex-none border-l border-white/10 md:border-0">
+            <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Alt</span>
+            <span className="text-xs md:text-lg font-light tabular-nums flex items-baseline gap-1" style={{ fontFamily: "'Inter', sans-serif" }}>
+              {issData ? Math.round(issData.altitude) : "..."} <span className="text-[8px] md:text-[10px] font-normal text-white/50">km</span>
             </span>
           </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Velocity</span>
-            <span className="text-lg font-light tabular-nums flex items-baseline gap-1" style={{ fontFamily: "'Inter', sans-serif" }}>
-              {issData ? Math.round(issData.velocity) : "..."} <span className="text-[10px] font-normal text-white/50">km/h</span>
+          <div className="flex flex-col items-center md:items-start flex-1 md:flex-none border-l border-white/10 md:border-0">
+            <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-white/50 mb-0.5">Vel</span>
+            <span className="text-xs md:text-lg font-light tabular-nums flex items-baseline gap-1" style={{ fontFamily: "'Inter', sans-serif" }}>
+              {issData ? Math.round(issData.velocity) : "..."} <span className="text-[8px] md:text-[10px] font-normal text-white/50">km/h</span>
             </span>
           </div>
         </div>
