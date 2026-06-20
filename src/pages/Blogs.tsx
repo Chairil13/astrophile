@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Loader2, ArrowUpRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { getBlogExcerpt } from "../lib/blogContent";
+import { fetchAdminProfile, type AdminProfile } from "../lib/adminProfile";
 
 
 import uiClickSound from "../assets/audio/click.wav";
@@ -18,18 +19,23 @@ interface Blog {
 
 export default function Blogs() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchBlogs = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("blogs")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const [{ data, error }, profile] = await Promise.all([
+      supabase
+        .from("blogs")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      fetchAdminProfile(),
+    ]);
     
     if (!error && data) {
       setBlogs(data);
     }
+    setAdminProfile(profile);
     setIsLoading(false);
   }, []);
 
@@ -126,7 +132,7 @@ export default function Blogs() {
                   
                   <div className="pt-4 border-t border-white/10 flex justify-between items-center text-xs tracking-wider uppercase text-white/40">
                     <span>{new Date(blog.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
-                    <span>Admin</span>
+                    <span>{adminProfile?.name || "Admin"}</span>
                   </div>
                 </div>
               </Link>

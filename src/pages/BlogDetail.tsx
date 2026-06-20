@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { parseBlogContent } from "../lib/blogContent";
+import { fetchAdminProfile, getInitials, type AdminProfile } from "../lib/adminProfile";
 
 import uiClickSound from "../assets/audio/click.wav";
 import uiHoverSound from "../assets/audio/hover.wav";
@@ -19,21 +20,26 @@ export default function BlogDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [blog, setBlog] = useState<Blog | null>(null);
+  const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchBlog = useCallback(async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    const [{ data, error }, profile] = await Promise.all([
+      supabase
       .from("blogs")
       .select("*")
       .eq("id", id)
-      .single();
+        .single(),
+      fetchAdminProfile(),
+    ]);
 
     if (error || !data) {
       console.error("Error fetching blog:", error);
       navigate("/blogs"); // Redirect back if not found
     } else {
       setBlog(data);
+      setAdminProfile(profile);
     }
     setIsLoading(false);
   }, [id, navigate]);
@@ -68,6 +74,8 @@ export default function BlogDetail() {
   if (!blog) return null;
 
   const contentBlocks = parseBlogContent(blog.description);
+  const authorName = adminProfile?.name || "Admin";
+  const authorInitials = getInitials(authorName) || "AD";
 
   return (
     <div className="min-h-[100dvh] w-full bg-black text-white relative overflow-hidden pb-20">
@@ -148,10 +156,14 @@ export default function BlogDetail() {
         {/* Footer info */}
         <div className="mt-20 pt-8 border-t border-white/10 flex items-center justify-between text-white/40 text-sm tracking-widest uppercase">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20">
-              <span className="text-white font-bold tracking-tighter text-xs">AD</span>
+            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20 overflow-hidden">
+              {adminProfile?.avatar_url ? (
+                <img src={adminProfile.avatar_url} alt={authorName} className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-white font-bold tracking-tighter text-xs">{authorInitials}</span>
+              )}
             </div>
-            <span>Admin</span>
+            <span>{authorName}</span>
           </div>
           <span>End of Blog</span>
         </div>
