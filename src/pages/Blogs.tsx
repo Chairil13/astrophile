@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Loader2, ArrowUpRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { cn } from "../lib/utils";
+
 
 import uiClickSound from "../assets/audio/click.wav";
 import uiHoverSound from "../assets/audio/hover.wav";

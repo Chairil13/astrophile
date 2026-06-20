@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Plus, Trash2, Upload, Loader2, Image as ImageIcon } from "lucide-react";
+import { LogOut, Trash2, Upload, Loader2, Image as ImageIcon } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { cn } from "../lib/utils";
 import AdminProfileModal from "../components/AdminProfileModal";

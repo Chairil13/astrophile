@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { X, Upload, Loader2, User } from "lucide-react";
 import { supabase } from "../lib/supabase";
-import { cn } from "../lib/utils";
+
 
 import uiClickSound from "../assets/audio/click.wav";
 import uiHoverSound from "../assets/audio/hover.wav";
