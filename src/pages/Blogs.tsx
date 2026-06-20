@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Loader2, ArrowUpRight } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { getBlogExcerpt } from "../lib/blogContent";
 
 
 import uiClickSound from "../assets/audio/click.wav";
@@ -19,11 +20,7 @@ export default function Blogs() {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchBlogs();
-  }, []);
-
-  const fetchBlogs = async () => {
+  const fetchBlogs = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("blogs")
@@ -34,7 +31,11 @@ export default function Blogs() {
       setBlogs(data);
     }
     setIsLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    queueMicrotask(fetchBlogs);
+  }, [fetchBlogs]);
 
   const playHoverSound = () => {
     const hoverSfx = new Audio(uiHoverSound);
@@ -120,7 +121,7 @@ export default function Blogs() {
                   </div>
                   
                   <p className="text-white/40 text-sm leading-relaxed line-clamp-3 mb-6 flex-1">
-                    {blog.description}
+                    {getBlogExcerpt(blog.description)}
                   </p>
                   
                   <div className="pt-4 border-t border-white/10 flex justify-between items-center text-xs tracking-wider uppercase text-white/40">

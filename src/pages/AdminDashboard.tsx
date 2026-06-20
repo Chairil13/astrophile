@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Trash2, Upload, Loader2, Image as ImageIcon } from "lucide-react";
+import { LogOut, Trash2, Upload, Loader2, Image as ImageIcon, Plus } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { cn } from "../lib/utils";
+import { getBlogExcerpt, getBlogImageUrls } from "../lib/blogContent";
 import AdminProfileModal from "../components/AdminProfileModal";
 
 import uiClickSound from "../assets/audio/click.wav";
@@ -16,6 +17,19 @@ interface Blog {
   created_at: string;
 }
 
+interface AdminData {
+  id: string;
+  username: string;
+  name: string;
+  avatar_url?: string;
+  password?: string;
+}
+
+const getStoredAdminData = () => {
+  const storedAdminData = sessionStorage.getItem("adminData");
+  return storedAdminData ? JSON.parse(storedAdminData) as AdminData : null;
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [blogs, setBlogs] = useState<Blog[]>([]);
@@ -28,21 +42,37 @@ export default function AdminDashboard() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contentImageInputRef = useRef<HTMLInputElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
+  const [isUploadingContentImage, setIsUploadingContentImage] = useState(false);
 
   // Profile Modal State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [adminData, setAdminData] = useState<any>(null);
+  const [adminData, setAdminData] = useState<AdminData | null>(getStoredAdminData);
+
+  const fetchBlogs = useCallback(async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from("blogs")
+      .select("*")
+      .order("created_at", { ascending: false });
+    
+    if (!error && data) {
+      setBlogs(data);
+    }
+    setIsLoading(false);
+  }, []);
 
   useEffect(() => {
     const auth = sessionStorage.getItem("isAdmin");
-    const storedAdminData = sessionStorage.getItem("adminData");
+    const storedAdminData = getStoredAdminData();
     if (!auth || !storedAdminData) {
       navigate("/admin");
-    } else {
-      setAdminData(JSON.parse(storedAdminData));
-      fetchBlogs();
+      return;
     }
-  }, [navigate]);
+
+    queueMicrotask(fetchBlogs);
+  }, [navigate, fetchBlogs]);
 
   const playHoverSound = () => {
     const hoverSfx = new Audio(uiHoverSound);
@@ -54,19 +84,6 @@ export default function AdminDashboard() {
     const clickSfx = new Audio(uiClickSound);
     clickSfx.volume = 0.5;
     clickSfx.play().catch(() => {});
-  };
-
-  const fetchBlogs = async () => {
-    setIsLoading(true);
-    const { data, error } = await supabase
-      .from("blogs")
-      .select("*")
-      .order("created_at", { ascending: false });
-    
-    if (!error && data) {
-      setBlogs(data);
-    }
-    setIsLoading(false);
   };
 
   const handleLogout = () => {
@@ -87,6 +104,57 @@ export default function AdminDashboard() {
     }
   };
 
+  const uploadBlogImage = async (file: File) => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+    const filePath = `public/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('blog-images')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('blog-images')
+      .getPublicUrl(filePath);
+
+    return { publicUrl, filePath };
+  };
+
+  const handleContentImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    playClickSound();
+    setIsUploadingContentImage(true);
+
+    try {
+      const { publicUrl } = await uploadBlogImage(file);
+      const imageMarkup = `\n\n![${file.name.replace(/\.[^/.]+$/, "")}](${publicUrl})\n\n`;
+      const textarea = descriptionRef.current;
+      const cursorPosition = textarea?.selectionStart ?? description.length;
+      const nextDescription =
+        description.slice(0, cursorPosition) +
+        imageMarkup +
+        description.slice(cursorPosition);
+
+      setDescription(nextDescription);
+
+      requestAnimationFrame(() => {
+        const nextCursor = cursorPosition + imageMarkup.length;
+        descriptionRef.current?.focus();
+        descriptionRef.current?.setSelectionRange(nextCursor, nextCursor);
+      });
+    } catch (error) {
+      console.error("Error inserting content image:", error);
+      alert("Failed to insert image into description.");
+    } finally {
+      setIsUploadingContentImage(false);
+      if (contentImageInputRef.current) contentImageInputRef.current.value = "";
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !description || !imageFile) return;
@@ -96,20 +164,7 @@ export default function AdminDashboard() {
 
     try {
       // 1. Upload Image to Supabase Storage
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
-      const filePath = `public/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('blog-images')
-        .upload(filePath, imageFile);
-
-      if (uploadError) throw uploadError;
-
-      // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('blog-images')
-        .getPublicUrl(filePath);
+      const { publicUrl } = await uploadBlogImage(imageFile);
 
       // 3. Insert into Database
       const { error: dbError } = await supabase
@@ -146,9 +201,14 @@ export default function AdminDashboard() {
     await supabase.from('blogs').delete().eq('id', id);
 
     // Try to delete image from storage
-    const pathParts = imageUrl.split('/');
-    const fileName = pathParts[pathParts.length - 1];
-    await supabase.storage.from('blog-images').remove([`public/${fileName}`]);
+    const blog = blogs.find((entry) => entry.id === id);
+    const storageUrls = [imageUrl, ...getBlogImageUrls(blog?.description ?? "")];
+    const storagePaths = storageUrls.map((url) => {
+      const pathParts = url.split('/');
+      const fileName = pathParts[pathParts.length - 1];
+      return `public/${fileName}`;
+    });
+    await supabase.storage.from('blog-images').remove(storagePaths);
 
     fetchBlogs();
   };
@@ -256,15 +316,48 @@ export default function AdminDashboard() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs uppercase tracking-widest text-white/60">Description</label>
+              <div className="flex items-center justify-between gap-3">
+                <label className="text-xs uppercase tracking-widest text-white/60">Description</label>
+                <button
+                  type="button"
+                  onClick={() => contentImageInputRef.current?.click()}
+                  onMouseEnter={playHoverSound}
+                  disabled={isUploadingContentImage}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-white/70 transition-colors hover:border-white/30 hover:bg-white/10 disabled:opacity-50"
+                >
+                  {isUploadingContentImage ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  Insert Image
+                </button>
+              </div>
               <textarea
+                ref={descriptionRef}
                 required
-                rows={4}
+                rows={8}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 outline-none focus:border-white/30 transition-colors resize-none"
-                placeholder="Enter detailed description..."
+                placeholder="Write paragraph, insert image, then continue below it..."
               />
+              <input
+                type="file"
+                ref={contentImageInputRef}
+                className="hidden"
+                accept="image/*"
+                onChange={handleContentImageSelect}
+              />
+              {getBlogImageUrls(description).length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {getBlogImageUrls(description).map((url) => (
+                    <div key={url} className="aspect-video overflow-hidden rounded-lg border border-white/10 bg-white/5">
+                      <img src={url} alt="Inserted description media" className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button
@@ -310,7 +403,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="p-4">
                     <h3 className="font-medium truncate">{blog.title}</h3>
-                    <p className="text-xs text-white/40 mt-1 truncate">{new Date(blog.created_at).toLocaleDateString()}</p>
+                    <p className="text-xs text-white/40 mt-1 truncate">{getBlogExcerpt(blog.description) || new Date(blog.created_at).toLocaleDateString()}</p>
                   </div>
                   
                   {/* Delete Button Overlay */}

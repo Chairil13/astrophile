@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { parseBlogContent } from "../lib/blogContent";
 
 import uiClickSound from "../assets/audio/click.wav";
 import uiHoverSound from "../assets/audio/hover.wav";
@@ -20,13 +21,7 @@ export default function BlogDetail() {
   const [blog, setBlog] = useState<Blog | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (id) {
-      fetchBlog();
-    }
-  }, [id]);
-
-  const fetchBlog = async () => {
+  const fetchBlog = useCallback(async () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("blogs")
@@ -41,7 +36,13 @@ export default function BlogDetail() {
       setBlog(data);
     }
     setIsLoading(false);
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    if (id) {
+      queueMicrotask(fetchBlog);
+    }
+  }, [id, fetchBlog]);
 
   const playHoverSound = () => {
     const hoverSfx = new Audio(uiHoverSound);
@@ -65,6 +66,8 @@ export default function BlogDetail() {
   }
 
   if (!blog) return null;
+
+  const contentBlocks = parseBlogContent(blog.description);
 
   return (
     <div className="min-h-[100dvh] w-full bg-black text-white relative overflow-hidden pb-20">
@@ -114,10 +117,32 @@ export default function BlogDetail() {
         </div>
 
         {/* Content */}
-        <div className="prose prose-invert prose-lg max-w-none">
-          <p className="text-white/70 leading-relaxed font-light tracking-wide text-lg md:text-xl whitespace-pre-wrap">
-            {blog.description}
-          </p>
+        <div className="space-y-10">
+          {contentBlocks.map((block, index) => {
+            if (block.type === "image") {
+              return (
+                <figure
+                  key={`${block.url}-${index}`}
+                  className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-[0_0_40px_rgba(255,255,255,0.04)]"
+                >
+                  <img
+                    src={block.url}
+                    alt={block.alt}
+                    className="w-full object-cover"
+                  />
+                </figure>
+              );
+            }
+
+            return (
+              <p
+                key={`${block.text}-${index}`}
+                className="text-white/70 leading-relaxed font-light tracking-wide text-lg md:text-xl whitespace-pre-wrap"
+              >
+                {block.text}
+              </p>
+            );
+          })}
         </div>
 
         {/* Footer info */}
