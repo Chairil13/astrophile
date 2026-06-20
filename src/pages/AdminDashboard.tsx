@@ -17,6 +17,14 @@ interface Blog {
   created_at: string;
 }
 
+interface ContentSection {
+  id: string;
+  text: string;
+  imageUrl: string | null;
+  imageAlt: string;
+  isUploading: boolean;
+}
+
 interface AdminData {
   id: string;
   username: string;
@@ -30,6 +38,38 @@ const getStoredAdminData = () => {
   return storedAdminData ? JSON.parse(storedAdminData) as AdminData : null;
 };
 
+const createContentSection = (): ContentSection => ({
+  id: crypto.randomUUID(),
+  text: "",
+  imageUrl: null,
+  imageAlt: "",
+  isUploading: false,
+});
+
+const formatContentSections = (sections: ContentSection[]) => {
+  return sections
+    .flatMap((section) => {
+      const blocks: string[] = [];
+
+      if (section.text.trim()) {
+        blocks.push(section.text.trim());
+      }
+
+      if (section.imageUrl) {
+        blocks.push(`![${section.imageAlt || "Blog image"}](${section.imageUrl})`);
+      }
+
+      return blocks;
+    })
+    .join("\n\n");
+};
+
+const getStoragePathFromUrl = (url: string) => {
+  const pathParts = url.split('/');
+  const fileName = pathParts[pathParts.length - 1];
+  return `public/${fileName}`;
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [blogs, setBlogs] = useState<Blog[]>([]);
@@ -38,13 +78,10 @@ export default function AdminDashboard() {
   // Form State
   const [isUploading, setIsUploading] = useState(false);
   const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [contentSections, setContentSections] = useState<ContentSection[]>([createContentSection()]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const contentImageInputRef = useRef<HTMLInputElement>(null);
-  const descriptionRef = useRef<HTMLTextAreaElement>(null);
-  const [isUploadingContentImage, setIsUploadingContentImage] = useState(false);
 
   // Profile Modal State
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -122,41 +159,92 @@ export default function AdminDashboard() {
     return { publicUrl, filePath };
   };
 
-  const handleContentImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSectionTextChange = (sectionId: string, text: string) => {
+    setContentSections((sections) =>
+      sections.map((section) =>
+        section.id === sectionId ? { ...section, text } : section
+      )
+    );
+  };
+
+  const addContentSection = () => {
+    playClickSound();
+    setContentSections((sections) => [...sections, createContentSection()]);
+  };
+
+  const removeContentSection = async (sectionId: string) => {
+    playClickSound();
+    const section = contentSections.find((entry) => entry.id === sectionId);
+
+    if (section?.imageUrl) {
+      await supabase.storage.from('blog-images').remove([getStoragePathFromUrl(section.imageUrl)]);
+    }
+
+    setContentSections((sections) => {
+      return sections.length === 1
+        ? [createContentSection()]
+        : sections.filter((entry) => entry.id !== sectionId);
+    });
+  };
+
+  const handleContentImageSelect = async (
+    sectionId: string,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     playClickSound();
-    setIsUploadingContentImage(true);
+    setContentSections((sections) =>
+      sections.map((section) =>
+        section.id === sectionId ? { ...section, isUploading: true } : section
+      )
+    );
 
     try {
       const { publicUrl } = await uploadBlogImage(file);
-      const imageMarkup = `\n\n![${file.name.replace(/\.[^/.]+$/, "")}](${publicUrl})\n\n`;
-      const textarea = descriptionRef.current;
-      const cursorPosition = textarea?.selectionStart ?? description.length;
-      const nextDescription =
-        description.slice(0, cursorPosition) +
-        imageMarkup +
-        description.slice(cursorPosition);
-
-      setDescription(nextDescription);
-
-      requestAnimationFrame(() => {
-        const nextCursor = cursorPosition + imageMarkup.length;
-        descriptionRef.current?.focus();
-        descriptionRef.current?.setSelectionRange(nextCursor, nextCursor);
-      });
+      setContentSections((sections) =>
+        sections.map((section) =>
+          section.id === sectionId
+            ? {
+                ...section,
+                imageUrl: publicUrl,
+                imageAlt: file.name.replace(/\.[^/.]+$/, ""),
+              }
+            : section
+        )
+      );
     } catch (error) {
       console.error("Error inserting content image:", error);
-      alert("Failed to insert image into description.");
+      alert("Failed to upload section image.");
     } finally {
-      setIsUploadingContentImage(false);
-      if (contentImageInputRef.current) contentImageInputRef.current.value = "";
+      setContentSections((sections) =>
+        sections.map((section) =>
+          section.id === sectionId ? { ...section, isUploading: false } : section
+        )
+      );
+      e.target.value = "";
     }
+  };
+
+  const removeSectionImage = async (sectionId: string) => {
+    playClickSound();
+    const section = contentSections.find((entry) => entry.id === sectionId);
+
+    if (section?.imageUrl) {
+      await supabase.storage.from('blog-images').remove([getStoragePathFromUrl(section.imageUrl)]);
+    }
+
+    setContentSections((sections) =>
+      sections.map((entry) =>
+        entry.id === sectionId ? { ...entry, imageUrl: null, imageAlt: "" } : entry
+      )
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const description = formatContentSections(contentSections);
     if (!title || !description || !imageFile) return;
 
     playClickSound();
@@ -177,7 +265,7 @@ export default function AdminDashboard() {
 
       // Reset Form
       setTitle("");
-      setDescription("");
+      setContentSections([createContentSection()]);
       setImageFile(null);
       setImagePreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -203,15 +291,13 @@ export default function AdminDashboard() {
     // Try to delete image from storage
     const blog = blogs.find((entry) => entry.id === id);
     const storageUrls = [imageUrl, ...getBlogImageUrls(blog?.description ?? "")];
-    const storagePaths = storageUrls.map((url) => {
-      const pathParts = url.split('/');
-      const fileName = pathParts[pathParts.length - 1];
-      return `public/${fileName}`;
-    });
+    const storagePaths = storageUrls.map(getStoragePathFromUrl);
     await supabase.storage.from('blog-images').remove(storagePaths);
 
     fetchBlogs();
   };
+
+  const composedDescription = formatContentSections(contentSections);
 
   return (
     <div className="min-h-[100dvh] w-full bg-black text-white selection:bg-white/30">
@@ -320,49 +406,101 @@ export default function AdminDashboard() {
                 <label className="text-xs uppercase tracking-widest text-white/60">Description</label>
                 <button
                   type="button"
-                  onClick={() => contentImageInputRef.current?.click()}
+                  onClick={addContentSection}
                   onMouseEnter={playHoverSound}
-                  disabled={isUploadingContentImage}
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-white/70 transition-colors hover:border-white/30 hover:bg-white/10 disabled:opacity-50"
                 >
-                  {isUploadingContentImage ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Plus className="h-3.5 w-3.5" />
-                  )}
-                  Insert Image
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Section
                 </button>
               </div>
-              <textarea
-                ref={descriptionRef}
-                required
-                rows={8}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 outline-none focus:border-white/30 transition-colors resize-none"
-                placeholder="Write paragraph, insert image, then continue below it..."
-              />
-              <input
-                type="file"
-                ref={contentImageInputRef}
-                className="hidden"
-                accept="image/*"
-                onChange={handleContentImageSelect}
-              />
-              {getBlogImageUrls(description).length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
-                  {getBlogImageUrls(description).map((url) => (
-                    <div key={url} className="aspect-video overflow-hidden rounded-lg border border-white/10 bg-white/5">
-                      <img src={url} alt="Inserted description media" className="h-full w-full object-cover" />
+
+              <div className="space-y-4">
+                {contentSections.map((section, index) => (
+                  <div key={section.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[10px] uppercase tracking-widest text-white/40">
+                        Section {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeContentSection(section.id)}
+                        onMouseEnter={playHoverSound}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-white/40 transition-colors hover:border-red-400/40 hover:bg-red-500/10 hover:text-red-300"
+                        aria-label="Remove section"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    <textarea
+                      rows={5}
+                      value={section.text}
+                      onChange={(e) => handleSectionTextChange(section.id, e.target.value)}
+                      className="w-full bg-black/30 border border-white/10 rounded-lg px-4 py-3 outline-none focus:border-white/30 transition-colors resize-none"
+                      placeholder={`Write section ${index + 1} description...`}
+                    />
+
+                    <div className="space-y-2">
+                      {section.imageUrl ? (
+                        <div className="relative aspect-video overflow-hidden rounded-lg border border-white/10 bg-white/5">
+                          <img src={section.imageUrl} alt={section.imageAlt || "Section image"} className="h-full w-full object-cover" />
+                          <div className="absolute right-3 top-3 flex gap-2">
+                            <label
+                              onMouseEnter={playHoverSound}
+                              className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-black/70 text-white transition-colors hover:bg-white hover:text-black"
+                              aria-label="Change section image"
+                            >
+                              <ImageIcon className="h-4 w-4" />
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={(e) => handleContentImageSelect(section.id, e)}
+                              />
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => removeSectionImage(section.id)}
+                              onMouseEnter={playHoverSound}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/70 text-white transition-colors hover:bg-red-500"
+                              aria-label="Remove section image"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label
+                          onMouseEnter={playHoverSound}
+                          className="flex aspect-video cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-white/15 bg-black/20 text-white/40 transition-colors hover:border-white/30 hover:bg-white/5 hover:text-white/70"
+                        >
+                          {section.isUploading ? (
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                          ) : (
+                            <ImageIcon className="h-6 w-6" />
+                          )}
+                          <span className="text-[10px] font-medium uppercase tracking-widest">
+                            {section.isUploading ? "Uploading..." : "Add Section Image"}
+                          </span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={(e) => handleContentImageSelect(section.id, e)}
+                            disabled={section.isUploading}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <button
               type="submit"
-              disabled={isUploading || !title || !description || !imageFile}
+              disabled={isUploading || !title || !composedDescription || !imageFile}
               onMouseEnter={playHoverSound}
               className="w-full flex items-center justify-center gap-2 bg-white text-black py-4 rounded-lg font-medium uppercase tracking-widest disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
