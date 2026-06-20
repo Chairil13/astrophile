@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { ArrowRight, Orbit } from "lucide-react";
+import { ArrowRight, Orbit, BookOpen } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Link } from "react-router-dom";
 
@@ -218,6 +218,15 @@ export default function LandingPage() {
 
         {/* Actions */}
         <div className="flex items-center gap-4">
+          <Link
+            to="/blogs"
+            onClick={playClickSound}
+            onMouseEnter={playHoverSound}
+            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md px-5 py-2.5 rounded-full transition-all duration-300 text-white/80 hover:text-white group"
+          >
+            <BookOpen className="w-4 h-4 group-hover:-rotate-12 transition-transform duration-300" />
+            <span className="text-xs uppercase tracking-[0.2em] font-medium">Blogs</span>
+          </Link>
           <Link
             to="/tracker"
             onClick={playClickSound}
