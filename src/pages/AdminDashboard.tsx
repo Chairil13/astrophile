@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, Trash2, Upload, Loader2, Image as ImageIcon, Plus } from "lucide-react";
+import { LogOut, Trash2, Upload, Loader2, Image as ImageIcon, Plus, Pencil, X } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { cn } from "../lib/utils";
-import { getBlogExcerpt, getBlogImageUrls } from "../lib/blogContent";
+import { getBlogExcerpt, getBlogImageUrls, parseBlogContent } from "../lib/blogContent";
 import AdminProfileModal from "../components/AdminProfileModal";
 
 import uiClickSound from "../assets/audio/click.wav";
@@ -46,6 +46,25 @@ const createContentSection = (): ContentSection => ({
   isUploading: false,
 });
 
+const createContentSectionsFromDescription = (description: string): ContentSection[] => {
+  const sections = parseBlogContent(description).map((block) => {
+    if (block.type === "image") {
+      return {
+        ...createContentSection(),
+        imageUrl: block.url,
+        imageAlt: block.alt,
+      };
+    }
+
+    return {
+      ...createContentSection(),
+      text: block.text,
+    };
+  });
+
+  return sections.length > 0 ? sections : [createContentSection()];
+};
+
 const formatContentSections = (sections: ContentSection[]) => {
   return sections
     .flatMap((section) => {
@@ -81,6 +100,7 @@ export default function AdminDashboard() {
   const [contentSections, setContentSections] = useState<ContentSection[]>([createContentSection()]);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [editingBlog, setEditingBlog] = useState<Blog | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile Modal State
@@ -139,6 +159,31 @@ export default function AdminDashboard() {
       };
       reader.readAsDataURL(file);
     }
+  };
+
+  const resetForm = () => {
+    setTitle("");
+    setContentSections([createContentSection()]);
+    setImageFile(null);
+    setImagePreview(null);
+    setEditingBlog(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const startEditing = (blog: Blog) => {
+    playClickSound();
+    setEditingBlog(blog);
+    setTitle(blog.title);
+    setContentSections(createContentSectionsFromDescription(blog.description));
+    setImageFile(null);
+    setImagePreview(blog.image_url);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelEditing = () => {
+    playClickSound();
+    resetForm();
   };
 
   const uploadBlogImage = async (file: File) => {
@@ -245,37 +290,38 @@ export default function AdminDashboard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const description = formatContentSections(contentSections);
-    if (!title || !description || !imageFile) return;
+    if (!title || !description || (!imageFile && !editingBlog)) return;
 
     playClickSound();
     setIsUploading(true);
 
     try {
-      // 1. Upload Image to Supabase Storage
-      const { publicUrl } = await uploadBlogImage(imageFile);
+      const previousCoverUrl = editingBlog?.image_url;
+      const publicUrl = imageFile
+        ? (await uploadBlogImage(imageFile)).publicUrl
+        : previousCoverUrl;
 
-      // 3. Insert into Database
-      const { error: dbError } = await supabase
-        .from('blogs')
-        .insert([
-          { title, description, image_url: publicUrl }
-        ]);
+      if (!publicUrl) return;
+
+      const payload = { title, description, image_url: publicUrl };
+      const { error: dbError } = editingBlog
+        ? await supabase.from('blogs').update(payload).eq('id', editingBlog.id)
+        : await supabase.from('blogs').insert([payload]);
 
       if (dbError) throw dbError;
 
-      // Reset Form
-      setTitle("");
-      setContentSections([createContentSection()]);
-      setImageFile(null);
-      setImagePreview(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (editingBlog && imageFile && previousCoverUrl) {
+        await supabase.storage.from('blog-images').remove([getStoragePathFromUrl(previousCoverUrl)]);
+      }
+
+      resetForm();
       
       // Refresh list
       fetchBlogs();
 
     } catch (error) {
-      console.error("Error creating blog:", error);
-      alert("Failed to upload blog post.");
+      console.error("Error saving blog:", error);
+      alert("Failed to save blog post.");
     } finally {
       setIsUploading(false);
     }
@@ -349,8 +395,27 @@ export default function AdminDashboard() {
         {/* Left Column: Form */}
         <div className="lg:col-span-5 space-y-8">
           <div>
-            <h2 className="text-2xl font-light tracking-widest uppercase mb-2">New Entry</h2>
-            <p className="text-white/40 text-sm">Publish a new transmission to the logs.</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-light tracking-widest uppercase mb-2">
+                  {editingBlog ? "Edit Entry" : "New Entry"}
+                </h2>
+                <p className="text-white/40 text-sm">
+                  {editingBlog ? "Revise an existing transmission in the logs." : "Publish a new transmission to the logs."}
+                </p>
+              </div>
+              {editingBlog && (
+                <button
+                  type="button"
+                  onClick={cancelEditing}
+                  onMouseEnter={playHoverSound}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[10px] font-medium uppercase tracking-widest text-white/60 transition-colors hover:border-white/30 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </button>
+              )}
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -500,14 +565,14 @@ export default function AdminDashboard() {
 
             <button
               type="submit"
-              disabled={isUploading || !title || !composedDescription || !imageFile}
+              disabled={isUploading || !title || !composedDescription || (!imageFile && !editingBlog)}
               onMouseEnter={playHoverSound}
               className="w-full flex items-center justify-center gap-2 bg-white text-black py-4 rounded-lg font-medium uppercase tracking-widest disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               {isUploading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Transmitting...</>
+                <><Loader2 className="w-4 h-4 animate-spin" /> {editingBlog ? "Updating..." : "Transmitting..."}</>
               ) : (
-                <><Upload className="w-4 h-4" /> Publish Entry</>
+                <><Upload className="w-4 h-4" /> {editingBlog ? "Update Entry" : "Publish Entry"}</>
               )}
             </button>
           </form>
@@ -544,14 +609,24 @@ export default function AdminDashboard() {
                     <p className="text-xs text-white/40 mt-1 truncate">{getBlogExcerpt(blog.description) || new Date(blog.created_at).toLocaleDateString()}</p>
                   </div>
                   
-                  {/* Delete Button Overlay */}
-                  <button
-                    onClick={() => handleDelete(blog.id, blog.image_url)}
-                    onMouseEnter={playHoverSound}
-                    className="absolute top-3 right-3 bg-red-500/80 backdrop-blur text-white p-2 rounded-full opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300 hover:bg-red-500"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="absolute top-3 right-3 flex gap-2 opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
+                    <button
+                      onClick={() => startEditing(blog)}
+                      onMouseEnter={playHoverSound}
+                      className="bg-white/90 backdrop-blur text-black p-2 rounded-full transition-colors hover:bg-white"
+                      aria-label={`Edit ${blog.title}`}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(blog.id, blog.image_url)}
+                      onMouseEnter={playHoverSound}
+                      className="bg-red-500/80 backdrop-blur text-white p-2 rounded-full transition-colors hover:bg-red-500"
+                      aria-label={`Delete ${blog.title}`}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

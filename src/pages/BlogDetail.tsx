@@ -3,7 +3,11 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { parseBlogContent } from "../lib/blogContent";
-import { fetchAdminProfile, getInitials, type AdminProfile } from "../lib/adminProfile";
+import {
+  fetchAdminProfile,
+  getInitials,
+  type AdminProfile,
+} from "../lib/adminProfile";
 
 import uiClickSound from "../assets/audio/click.wav";
 import uiHoverSound from "../assets/audio/hover.wav";
@@ -26,11 +30,7 @@ export default function BlogDetail() {
   const fetchBlog = useCallback(async () => {
     setIsLoading(true);
     const [{ data, error }, profile] = await Promise.all([
-      supabase
-      .from("blogs")
-      .select("*")
-      .eq("id", id)
-        .single(),
+      supabase.from("blogs").select("*").eq("id", id).single(),
       fetchAdminProfile(),
     ]);
 
@@ -53,20 +53,22 @@ export default function BlogDetail() {
   const playHoverSound = () => {
     const hoverSfx = new Audio(uiHoverSound);
     hoverSfx.volume = 0.2;
-    hoverSfx.play().catch(() => { });
+    hoverSfx.play().catch(() => {});
   };
 
   const playClickSound = () => {
     const clickSfx = new Audio(uiClickSound);
     clickSfx.volume = 0.5;
-    clickSfx.play().catch(() => { });
+    clickSfx.play().catch(() => {});
   };
 
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] w-full bg-black text-white flex flex-col items-center justify-center gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-white/40" />
-        <span className="tracking-widest uppercase text-sm text-white/40">Decrypting Transmission...</span>
+        <span className="tracking-widest uppercase text-sm text-white/40">
+          Decrypting Transmission...
+        </span>
       </div>
     );
   }
@@ -103,14 +105,23 @@ export default function BlogDetail() {
         <header className="mb-12">
           <div className="flex items-center gap-4 mb-6">
             <div className="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1 rounded-full">
-              <span className="text-[10px] uppercase tracking-widest font-medium text-white/80">Log Entry</span>
+              <span className="text-[10px] uppercase tracking-widest font-medium text-white/80">
+                Date
+              </span>
             </div>
             <span className="text-sm tracking-wider uppercase text-white/40">
-              {new Date(blog.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              {new Date(blog.created_at).toLocaleDateString("en-US", {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
             </span>
           </div>
 
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-light tracking-tighter uppercase shine-effect leading-[1.1]" style={{ fontFamily: "'Inter', sans-serif" }}>
+          <h1
+            className="text-4xl md:text-6xl lg:text-7xl font-light tracking-tighter uppercase shine-effect leading-[1.1]"
+            style={{ fontFamily: "'Inter', sans-serif" }}
+          >
             {blog.title}
           </h1>
         </header>
@@ -158,9 +169,15 @@ export default function BlogDetail() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center border border-white/20 overflow-hidden">
               {adminProfile?.avatar_url ? (
-                <img src={adminProfile.avatar_url} alt={authorName} className="h-full w-full object-cover" />
+                <img
+                  src={adminProfile.avatar_url}
+                  alt={authorName}
+                  className="h-full w-full object-cover"
+                />
               ) : (
-                <span className="text-white font-bold tracking-tighter text-xs">{authorInitials}</span>
+                <span className="text-white font-bold tracking-tighter text-xs">
+                  {authorInitials}
+                </span>
               )}
             </div>
             <span>{authorName}</span>
